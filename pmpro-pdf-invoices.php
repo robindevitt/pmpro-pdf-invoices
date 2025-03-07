@@ -112,7 +112,7 @@ function pmpropdf_attach_pdf_email( $attachments, $email ) {
 	}
 
 	$email_templates = apply_filters( 'pmpropdf_pdf_included_email_templates', array( 'invoice', 'billable_invoice', 'check_pending', 'check_pending_reminder' ) );
-	
+
 	// If the email template isn't a checkout email or in the list of email templates, bail.
 	if ( strpos( $email->template, "checkout_" ) === false && ! in_array( $email->template, $email_templates ) ) {
 		return $attachments;
@@ -214,7 +214,7 @@ function pmpropdf_generate_pdf($order_data, $return_dom_pdf = false){
 	}
 
 	$gateway = pmpro_gateways();
-	
+
 	// Get the payment method for the order, adds support for "Free" as this isn't a registered payment gateway.
 	$payment_method = isset( $gateway[$order_data->gateway] ) ? apply_filters( 'pmpro_pdf_gateway_string', $gateway[$order_data->gateway] ) : __( 'N/A', 'pmpro-pdf-invoices' );
 
@@ -304,11 +304,11 @@ function pmpropdf_generate_pdf($order_data, $return_dom_pdf = false){
 
 				// escape the meta data, but using wp_kses_post to allow for HTML in the meta data.
 				$meta = wp_kses_post( $meta );
-				
+
 				$body = str_replace( '{{'.$cleaned_up.'}}', $meta, $body );
-				
+
 			}
-			
+
 		}
 
 	}
@@ -335,7 +335,7 @@ function pmpropdf_generate_pdf($order_data, $return_dom_pdf = false){
 	} catch (Exception $ex){
 		return false;
 	}
-		
+
 	do_action( 'pmpropdf_generated_pdf_invoice', $order_data->id, $path );
 
 	return $path;
@@ -457,7 +457,7 @@ function pmpropdf_get_invoice_directory_or_url($url = false){
 function pmpropdf_generate_invoice_name($order_code){
 	$invoice_prefix = apply_filters( 'pmpro_pdf_invoice_prefix', 'INV' );
 	$invoice_name = $invoice_prefix . $order_code . ".pdf";
-	
+
 	return apply_filters( 'pmpro_pdf_invoice_name', $invoice_name, $order_code );
 }
 
@@ -534,38 +534,18 @@ add_action( 'wp_ajax_pmpropdf_batch_processor', 'pmpropdf_batch_processor' );
  * @since 1.2
  */
 function pmpropdf_download_invoice( $order_code ) {
+	$invoice_name = pmpropdf_generate_invoice_name( $order_code );
+	$file_path    = pmpropdf_get_invoice_directory_or_url() . $invoice_name;
 
-	if( file_exists( pmpropdf_get_invoice_directory_or_url() . pmpropdf_generate_invoice_name( $order_code ) ) ) {
-		$invoice_name = pmpropdf_generate_invoice_name( $order_code );
-		$download_url = esc_url( pmpropdf_get_invoice_directory_or_url( true ) . $invoice_name );
-		$access_key = pmpropdf_get_rewrite_token();
-
-		$download_url .= "?access=$access_key";
-
-		header('Content-type: application/pdf');
-		header('Content-Disposition: attachment; filename="'.$invoice_name.'"');
-		readfile($download_url);
-
-		/**
-		 * This is removed to support the force htaccess redirect
-		 * Auto download is now automatically handled in the htaccess file
-		 *
-		 * -------------
-		 * header( 'Content-Description: File Transfer' );
-		 * header( 'Content-Type: application/octet-stream' );
-		 * header( 'Content-Disposition: attachment; filename="'.basename( $invoice_name ).'"' );
-		 * header( 'Expires: 0' );
-		 * header( 'Cache-Control: must-revalidate' );
-		 * header( 'Pragma: public' );
-		 * header( 'Content-Length: ' . filesize( $download_url ) );
-		 * flush(); // Flush system output buffer
-		 * readfile( $download_url );
-		 * -------------
-		*/
-
-		exit;
-	  }
-
+	// Check the file exists.
+    if ( file_exists( $file_path ) ) {
+        header('Content-type: application/pdf');
+        header('Content-Disposition: attachment; filename="'.$invoice_name.'"');
+        readfile($file_path);
+        exit;
+    } else {
+        error_log("Invoice file not found: $file_path");
+    }
 }
 
 /**
@@ -658,7 +638,7 @@ function pmpropdf_download_list_shortcode_handler(){
 			$invoice->getMembershipLevel();
 
 			$membership_level = $invoice->membership_level->name;
-			
+
 			if ( file_exists( pmpropdf_get_invoice_directory_or_url() . pmpropdf_generate_invoice_name($invoice->code) ) ){
 				$content .= '<tr>';
 				$content .=		'<td>' . date_i18n(get_option("date_format"), $invoice->timestamp) . '</td>';
@@ -667,7 +647,7 @@ function pmpropdf_download_list_shortcode_handler(){
 				$content .= 	'<td><a href="' . esc_url( admin_url( '?pmpropdf=' . $invoice->code ) ). '">' . pmpropdf_generate_invoice_name( $invoice->code ) .'</a></td>';
 				$content .= '</tr>';
 			}
-			
+
 		}
 	}
 
@@ -794,14 +774,14 @@ function pmpropdf_check_should_zip(){
 			if(current_user_can('administrator') && class_exists('ZipArchive')){
 				$invoice_dir = pmpropdf_get_invoice_directory_or_url();
 				if(file_exists($invoice_dir)){
-					$files = scandir($invoice_dir); 
+					$files = scandir($invoice_dir);
 					$pdfs = array();
 					foreach ($files as $file) {
 						if(strpos($file, '.pdf') !== FALSE){
 							$pdfs[] = pmpropdf_get_invoice_directory_or_url() . $file;
 						}
 					}
-					
+
 					if(!empty($pdfs)){
 						$archive_name = 'invoices_archive_' . time() . '.zip';
 						$archive = new ZipArchive;
@@ -833,7 +813,7 @@ function pmpropdf_footer_note ($footnote){
 	}
 	return $footnote;
 }
- 
+
 add_filter('admin_footer_text', 'pmpropdf_footer_note', 10, 1);
 
 
@@ -845,9 +825,9 @@ function pmpropdf_nginx_notice () {
 
 	$user_id = get_current_user_id();
 
-	if( current_user_can( 'manage_options' ) && 
+	if( current_user_can( 'manage_options' ) &&
 		intval( get_user_meta( $user_id, 'pmpropdf_nginx_dismissed', true ) ) == false &&
-		( !empty( $_SERVER['SERVER_SOFTWARE'] ) && strpos( $_SERVER['SERVER_SOFTWARE'], 'nginx' ) !== false ) 
+		( !empty( $_SERVER['SERVER_SOFTWARE'] ) && strpos( $_SERVER['SERVER_SOFTWARE'], 'nginx' ) !== false )
 	){
 
 		$upload_dir = wp_upload_dir();
@@ -857,7 +837,7 @@ function pmpropdf_nginx_notice () {
 		$invoice_dir = $baseurl . '/pmpro-invoices/';
 
 		$access_key = pmpropdf_get_rewrite_token();
-	
+
 		?>
 		<div class="updated">
 			<h2><?php _e('Paid Memberships Pro - PDF Invoices - Nginx Detected', 'pmpro-pdf-invoices'); ?></h2>
@@ -867,7 +847,7 @@ function pmpropdf_nginx_notice () {
 					if ($query_string  !~ "access=<?php echo $access_key; ?>"){
 						return 403;
 				  	}
-				}			
+				}
 			</code></p>
 			<p><a class='button button-primary' id="pmpropdf_nginx_prompt" href="<?php echo admin_url( '?pmpropdf_nginx=dismiss' ); ?>"><?php _e("I've Added The Nginx Rule", "pmpro-pdf-invoices"); ?></a></p>
 		</div>
@@ -896,11 +876,11 @@ add_action( 'admin_init', 'pmpropdf_dismiss_nginx_notice' );
  * @since 1.9
 */
 function pmpropdf_get_order_template_html(){
-	pmpropdf_migrate_custom_template(); 
-	
+	pmpropdf_migrate_custom_template();
+
 	$path = pmpropdf_get_order_template_path();
 	if(!empty($path) && file_exists($path)){
-		return file_get_contents($path);		
+		return file_get_contents($path);
 	}
 	return "";
 }
@@ -950,9 +930,9 @@ function pmpropdf_migrate_custom_template(){
 				//Silence
 			}
 		}
-		
+
 		@unlink($legacy_path);
-	} 
+	}
 }
 
 /**
@@ -988,13 +968,13 @@ function pmpropdf_enqueue_scripts_styles() {
 	// Enqueue scripts.
 	wp_register_script( 'pmpro-pdf-admin', plugins_url( '/includes/js/admin.js', __FILE__ ), array( 'jquery' ), PMPRO_PDF_VERSION );
 
-	wp_localize_script( 'pmpro-pdf-admin', 'pmpro_pdf_admin', array( 
+	wp_localize_script( 'pmpro-pdf-admin', 'pmpro_pdf_admin', array(
 		'ajaxurl' => admin_url( 'admin-ajax.php' ),
 		'admin_url' => esc_url( admin_url( '?pmpropdf=') ),
 		'download_text' => __( 'Download PDF', 'pmpro-pdf-invoices' ),
 		'loading_gif' => plugins_url( '/includes/images/pmpropdf-loading.gif', __FILE__ ),
 		'nonce' => wp_create_nonce( 'pmpro-pdf-invoices-single' ),
-		)  
+		)
 	);
 
 	wp_enqueue_script( 'pmpro-pdf-admin' );
@@ -1038,7 +1018,7 @@ add_action( 'wp_ajax_pmpropdf_ajax_generate_pdf_invoice', 'pmpropdf_ajax_generat
  * @return void
  */
 function pmpropdf_after_plugin_row( $plugin_file, $plugin_data, $status ) {
-	
+
 	// If there's already an update just bail, don't show the bump.
 	if ( ! empty( $plugin_data ) && ! empty( $plugin_data['new_version'] ) && $plugin_data['new_version'] ) {
 		return;
@@ -1067,14 +1047,14 @@ function pmpropdf_after_plugin_row( $plugin_file, $plugin_data, $status ) {
 		<tr class="plugin-update-tr active" id="pmpropdf-plugin-update" style="border-top:none">
 			<td class="plugin-update colspanchange" colspan="4">
 				<div class="update-message notice inline notice-warning notice-alt">
-					<p><?php 
-					echo sprintf( __( '%s your copy of PMPro PDF Invoices to receive access to automatic upgrades and support. Need a license key? %s', 'pmpro-pdf-invoices' ), '<a href="' . admin_url( 'options-general.php?page=pmpro_pdf_invoices_license_key#tab_0' ) . '"> ' . __( 'Register', 'pmpro-pdf-invoices' ) . '</a>', '<a href="https://yoohooplugins.com/plugins/paid-memberships-pro-pdf-invoices/" target="_blank" rel="nofollow">' . __( 'Purchase one now.', 'pmpro-pdf-invoices' ) . '</a>' ); 
+					<p><?php
+					echo sprintf( __( '%s your copy of PMPro PDF Invoices to receive access to automatic upgrades and support. Need a license key? %s', 'pmpro-pdf-invoices' ), '<a href="' . admin_url( 'options-general.php?page=pmpro_pdf_invoices_license_key#tab_0' ) . '"> ' . __( 'Register', 'pmpro-pdf-invoices' ) . '</a>', '<a href="https://yoohooplugins.com/plugins/paid-memberships-pro-pdf-invoices/" target="_blank" rel="nofollow">' . __( 'Purchase one now.', 'pmpro-pdf-invoices' ) . '</a>' );
 					?></p>
 				</div>
 			</td>
 		</tr>
-	<script type='text/javascript'> 
-		jQuery('#pmpropdf-plugin-update').prev('tr').addClass('update'); 
+	<script type='text/javascript'>
+		jQuery('#pmpropdf-plugin-update').prev('tr').addClass('update');
 	</script>
 	<?php
 	}
@@ -1119,8 +1099,8 @@ function pmpropdf_show_no_license_warning() {
 	if ( ! $license_valid ) {
 		?>
 		<div class="notice pmpropdf-notice-error">
-			<p><?php 
-			echo sprintf( __( '%s your copy of PMPro PDF Invoices to receive access to automatic upgrades and support. Need a license key? %s', 'pmpro-pdf-invoices' ), '<a href="' . admin_url( 'options-general.php?page=pmpro_pdf_invoices_license_key#tab_0' ) . '"> ' . __( 'Register', 'pmpro-pdf-invoices' ) . '</a>', '<a href="https://yoohooplugins.com/plugins/paid-memberships-pro-pdf-invoices/" target="_blank" rel="nofollow">' . __( 'Purchase one now.', 'pmpro-pdf-invoices' ) . '</a>' ); 
+			<p><?php
+			echo sprintf( __( '%s your copy of PMPro PDF Invoices to receive access to automatic upgrades and support. Need a license key? %s', 'pmpro-pdf-invoices' ), '<a href="' . admin_url( 'options-general.php?page=pmpro_pdf_invoices_license_key#tab_0' ) . '"> ' . __( 'Register', 'pmpro-pdf-invoices' ) . '</a>', '<a href="https://yoohooplugins.com/plugins/paid-memberships-pro-pdf-invoices/" target="_blank" rel="nofollow">' . __( 'Purchase one now.', 'pmpro-pdf-invoices' ) . '</a>' );
 			?></p>
 		</div>
 		<?php
